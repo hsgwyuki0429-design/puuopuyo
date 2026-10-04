@@ -6,7 +6,7 @@
   "scripts": {
     "start": "node server.js",
     "build": "node scripts/build.js",
-    "deploy": "npm run build && wrangler deploy",
+    "deploy": "npm run build && wrangler pages deploy dist --project-name puyopuyo --branch main",
     "test": "node --test tests/game.test.js",
     "test:ui": "playwright test"
   },
