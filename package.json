@@ -5,10 +5,13 @@
   "type": "module",
   "scripts": {
     "start": "node server.js",
+    "build": "node scripts/build.js",
+    "deploy": "npm run build && wrangler deploy",
     "test": "node --test tests/game.test.js",
     "test:ui": "playwright test"
   },
   "devDependencies": {
-    "@playwright/test": "^1.63.0"
+    "@playwright/test": "^1.63.0",
+    "wrangler": "4.147.0"
   }
 }

@@ -2,6 +2,22 @@
 
 「ブロックブラストの自由配置 + ぷよぷよの同色消去 + 重力なし」の、一人用ブラウザパズルです。スマートフォンの縦画面とPCのマウス操作に対応しています。
 
+**[公開版を遊ぶ — Cloudflare](https://puuopuyo.hsgw-yuki0429.workers.dev)**
+
+## Cloudflareへの公開
+
+Cloudflare Workersの静的アセット配信で公開しています。公開用の設定は `wrangler.jsonc` にあります。
+
+```sh
+npm ci
+npx wrangler login
+npm run deploy
+```
+
+`npm run build` がブラウザ用の4ファイルだけを `dist/` にコピーし、`npm run deploy` がそれを公開します。Wranglerでログイン済みなら再ログインは不要です。ログイン情報はリポジトリに含めません。GitHubへのマージで自動公開される設定ではないため、以後の更新時は `npm run deploy` を実行してください。
+
+公開先を検証する場合は `PLAYWRIGHT_BASE_URL=https://puuopuyo.hsgw-yuki0429.workers.dev` を環境変数に設定して `npm run test:ui` を実行します。指定時はローカルサーバーを起動せず、公開URLに対して操作テストを行います。
+
 ## 起動
 
 Node.js 22以上を用意し、このディレクトリで実行してください。ゲームの起動にパッケージのインストールやビルドは不要です。
