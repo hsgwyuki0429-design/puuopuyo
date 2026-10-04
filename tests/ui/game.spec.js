@@ -4,7 +4,7 @@ const cell = (page, row, col) =>
   page.locator(`.cell[data-row="${row}"][data-col="${col}"]`);
 const blocks = (page) => page.locator("#board .block");
 async function ready(page) {
-  await expect(page.locator("#rotate")).toBeEnabled();
+  await expect(page.locator("#board")).toHaveAttribute("aria-busy", "false");
 }
 async function place(page, row, col) {
   await cell(page, row, col).click();
@@ -19,20 +19,21 @@ test.beforeEach(async ({ page }) => {
   await page.goto("/");
 });
 
-test("initial layout, arbitrary hand order, rotation, refill and restart", async ({
+test("initial layout, fixed orientation, arbitrary hand order, refill and restart", async ({
   page,
 }) => {
   await expect(page.locator(".cell")).toHaveCount(64);
   await expect(page.locator(".piece-slot:not(:disabled)")).toHaveCount(3);
   await page.locator(".piece-slot").nth(2).click();
-  await page.locator("#rotate").click();
+  await expect(page.locator("#rotate")).toHaveCount(0);
+  await page.keyboard.press("r");
   await expect(page.locator(".piece-slot").nth(2)).toHaveAttribute(
     "aria-label",
-    /縦/,
+    /横/,
   );
   await place(page, 2, 2);
   await expect(cell(page, 2, 2).locator(".block")).toHaveCount(1);
-  await expect(cell(page, 3, 2).locator(".block")).toHaveCount(1);
+  await expect(cell(page, 2, 3).locator(".block")).toHaveCount(1);
   await expect(page.locator(".piece-slot").nth(2)).toBeDisabled();
   await place(page, 0, 5);
   await place(page, 6, 5);
@@ -82,7 +83,7 @@ test("invalid overlap and board edge consume no piece and change no score", asyn
   await expect(page.locator("#score")).toHaveText("0");
 });
 
-test("mouse drag previews valid / invalid positions and returns rejected pieces", async ({
+test("mouse drag shows the snapped destination and rejects distant drops", async ({
   page,
   isMobile,
 }) => {
@@ -109,7 +110,9 @@ test("mouse drag previews valid / invalid positions and returns rejected pieces"
     target.y + target.height / 2,
     { steps: 8 },
   );
-  await expect(page.locator("#preview")).toHaveClass(/invalid/);
+  // The occupied target magnetizes to a nearby legal pair.
+  await expect(page.locator("#preview")).not.toHaveClass(/invalid/);
+  await page.mouse.move(5, 5, { steps: 8 });
   await page.mouse.up();
   await expect(page.locator("#drag-piece")).toBeHidden();
   await expect(blocks(page)).toHaveCount(2);
@@ -172,7 +175,7 @@ test("keyboard controls and instructions work", async ({ page, isMobile }) => {
   await page.keyboard.press("Enter");
   await ready(page);
   await expect(cell(page, 1, 1).locator(".block")).toHaveCount(1);
-  await expect(cell(page, 2, 1).locator(".block")).toHaveCount(1);
+  await expect(cell(page, 1, 2).locator(".block")).toHaveCount(1);
   await page.locator("#help").click();
   await expect(page.locator("#help-dialog")).toBeVisible();
   await page.keyboard.press("Escape");
@@ -203,11 +206,58 @@ test("game over after all legal placements, with result and replay", async ({
   await expect(blocks(page)).toHaveCount(64);
   await expect(page.locator("#final-score")).toHaveText("0");
   await page.locator("#view-board").click();
-  await expect(page.locator("#rotate")).toBeDisabled();
+  await expect(page.locator("#board")).toHaveAttribute("aria-disabled", "true");
   await page.locator("#restart").click();
   await page.locator("#confirm-restart").click();
   await expect(blocks(page)).toHaveCount(0);
-  await expect(page.locator("#rotate")).toBeEnabled();
+  await expect(page.locator("#board")).toHaveAttribute(
+    "aria-disabled",
+    "false",
+  );
+});
+
+test("misaligned edge drop snaps to the shown cells without changing orientation", async ({
+  page,
+  isMobile,
+}) => {
+  const slot = await page.locator(".piece-slot").first().boundingBox();
+  const target = await cell(page, 3, 7).boundingBox();
+  const expected = await cell(page, 3, 6).boundingBox();
+  const start = { x: slot.x + slot.width / 2, y: slot.y + slot.height / 2 };
+  const end = {
+    x: target.x + target.width / 2 + 2,
+    y: target.y + target.height / 2 + (isMobile ? target.width * 1.4 : 0),
+  };
+  let session;
+  if (isMobile) {
+    session = await page.context().newCDPSession(page);
+    await session.send("Input.dispatchTouchEvent", {
+      type: "touchStart",
+      touchPoints: [start],
+    });
+    await session.send("Input.dispatchTouchEvent", {
+      type: "touchMove",
+      touchPoints: [end],
+    });
+  } else {
+    await page.mouse.move(start.x, start.y);
+    await page.mouse.down();
+    await page.mouse.move(end.x, end.y, { steps: 8 });
+  }
+  await expect(page.locator("#preview")).not.toHaveClass(/invalid/);
+  const shown = await page.locator("#preview .block").first().boundingBox();
+  expect(Math.abs(shown.x - expected.x)).toBeLessThan(2);
+  expect(Math.abs(shown.y - expected.y)).toBeLessThan(2);
+  if (isMobile)
+    await session.send("Input.dispatchTouchEvent", {
+      type: "touchEnd",
+      touchPoints: [],
+    });
+  else await page.mouse.up();
+  await ready(page);
+  await expect(cell(page, 3, 6).locator(".block")).toHaveCount(1);
+  await expect(cell(page, 3, 7).locator(".block")).toHaveCount(1);
+  await expect(blocks(page)).toHaveCount(2);
 });
 
 test("render representative board without runtime errors", async ({

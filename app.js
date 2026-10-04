@@ -1,4 +1,11 @@
-import { CONFIG, newGame, pieceCells, canPlace, placePiece } from "./game.js";
+import {
+  CONFIG,
+  newGame,
+  pieceCells,
+  canPlace,
+  placePiece,
+  snapPlacement,
+} from "./game.js";
 
 const $ = (id) => document.getElementById(id);
 const names = ["赤", "青", "黄", "緑"];
@@ -108,7 +115,8 @@ function renderHand() {
     hand.append(button);
   });
   $("remaining").textContent = `あと ${state.hand.filter(Boolean).length} 個`;
-  $("rotate").disabled = busy || state.over || !state.hand[selected];
+  board.setAttribute("aria-busy", String(busy));
+  board.setAttribute("aria-disabled", String(state.over));
 }
 
 function message(text, error = false) {
@@ -123,12 +131,14 @@ function metrics() {
   return { rect, size: first.width, step: first.width + gap };
 }
 
-function pointToCell(x, y) {
-  const { rect, step } = metrics();
-  return {
-    row: Math.floor((y - rect.top) / step),
-    col: Math.floor((x - rect.left) / step),
-  };
+function pointToCell(x, y, snap = false) {
+  const { rect, step, size } = metrics();
+  const row = (y - rect.top - size / 2) / step;
+  const col = (x - rect.left - size / 2) / step;
+  const raw = { row: Math.round(row), col: Math.round(col) };
+  return snap
+    ? snapPlacement(state.board, state.hand[selected], row, col) || raw
+    : raw;
 }
 
 function showPreview(position) {
@@ -169,16 +179,6 @@ function select(index) {
   selected = index;
   renderHand();
   clearPreview();
-}
-function rotate() {
-  if (busy || state.over || drag || !state.hand[selected]) return;
-  state.hand[selected] = {
-    ...state.hand[selected],
-    rotation: (state.hand[selected].rotation + 1) % 4,
-  };
-  renderHand();
-  if (candidate) showPreview(candidate);
-  message("90°回転しました。好きな空きマスへ");
 }
 
 function cancelDrag() {
@@ -288,7 +288,7 @@ hand.addEventListener("pointermove", (event) => {
   ghost.style.top = `${y - size / 2}px`;
   ghost.hidden = false;
   hand.children[selected].classList.add("dragging");
-  showPreview(pointToCell(x, y));
+  showPreview(pointToCell(x, y, true));
 });
 hand.addEventListener("pointerup", (event) => {
   if (!drag || event.pointerId !== drag.id) return;
@@ -297,10 +297,11 @@ hand.addEventListener("pointerup", (event) => {
   const position = pointToCell(
     event.clientX,
     event.clientY - (drag.touch ? metrics().size * 1.4 : 0),
+    true,
   );
   cancelDrag();
   if (moved) commit(position);
-  else message("ピースを選択しました。回転するか、盤面をタップ");
+  else message("ピースを選択しました。空きマスをタップ");
 });
 hand.addEventListener("pointercancel", cancelDrag);
 hand.addEventListener("lostpointercapture", () => {
@@ -355,7 +356,6 @@ window.addEventListener("resize", () => {
   boardPointer = null;
 });
 
-$("rotate").addEventListener("click", rotate);
 document.addEventListener("keydown", (event) => {
   if (document.querySelector("dialog[open]")) return;
   if (event.key === "Escape") {
@@ -364,10 +364,6 @@ document.addEventListener("keydown", (event) => {
     return;
   }
   if (drag) return;
-  if (event.key.toLowerCase() === "r") {
-    event.preventDefault();
-    rotate();
-  }
   if (/^[1-3]$/.test(event.key)) select(Number(event.key) - 1);
   if (document.activeElement !== board || busy || state.over) return;
   const delta = {

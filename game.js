@@ -30,8 +30,8 @@ export function newGame(config = CONFIG, random = Math.random) {
   };
 }
 
-// Clockwise rotation, normalized to the piece's top-left bounding box.
-// Color order is retained through all four orientations.
+// The dealt orientation is fixed. These offsets describe that orientation;
+// players and the game-over search never rotate a piece.
 export function pieceCells(piece, row = 0, col = 0) {
   const offsets = [
     [
@@ -118,14 +118,33 @@ export function hasMove(board, hand) {
   return hand.some(
     (piece) =>
       piece &&
-      [0, 1, 2, 3].some((rotation) =>
-        board.some((line, row) =>
-          line.some((_, col) =>
-            canPlace(board, { ...piece, rotation }, row, col),
-          ),
-        ),
+      board.some((line, row) =>
+        line.some((_, col) => canPlace(board, piece, row, col)),
       ),
   );
+}
+
+// Coordinates are measured in grid steps from the center of the first cell.
+// Prefer the directly indicated cell; when it is blocked or just outside the
+// board, magnetize to a nearby legal anchor within one grid step. Never rotate,
+// overlap, split a piece, or jump across the board to a distant free space.
+export function snapPlacement(board, piece, row, col, radius = 1.15) {
+  if (!piece || !Number.isFinite(row) || !Number.isFinite(col)) return null;
+  const direct = { row: Math.round(row), col: Math.round(col) };
+  if (canPlace(board, piece, direct.row, direct.col)) return direct;
+  let nearest = null,
+    distance = radius * radius;
+  for (let r = Math.ceil(row - radius); r <= Math.floor(row + radius); r++) {
+    for (let c = Math.ceil(col - radius); c <= Math.floor(col + radius); c++) {
+      const next = (r - row) ** 2 + (c - col) ** 2;
+      if (next <= distance && canPlace(board, piece, r, c)) {
+        if (next === distance && nearest) continue;
+        nearest = { row: r, col: c };
+        distance = next;
+      }
+    }
+  }
+  return nearest;
 }
 
 export function placePiece(

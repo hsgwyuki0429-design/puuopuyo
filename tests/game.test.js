@@ -9,6 +9,7 @@ import {
   findGroups,
   hasMove,
   placePiece,
+  snapPlacement,
 } from "../game.js";
 
 const piece = (a = 0, b = 1, rotation = 0) => ({ colors: [a, b], rotation });
@@ -44,7 +45,7 @@ test("defaults: 8×8, four colors, three pieces; same and mixed colors are possi
     ],
   );
 });
-test("four clockwise rotations preserve color order and return to the original", () => {
+test("the four dealt orientations have stable coordinates and color order", () => {
   assert.deepEqual(
     [0, 1, 2, 3].map((rotation) =>
       pieceCells(piece(0, 1, rotation)).map((c) => [c.row, c.col]),
@@ -195,12 +196,14 @@ test("pieces can be used in any order; refill only after all three have been use
   assert.equal(result.refilled, true);
   assert.equal(result.state.hand.filter(Boolean).length, 3);
 });
-test("game-over search includes rotation and rejects isolated vacancies", () => {
+test("game-over uses only the dealt orientation and rejects isolated vacancies", () => {
   const board = Array.from({ length: 8 }, (_, r) =>
     Array.from({ length: 8 }, (_, c) => (r + c) % 4),
   );
   board[2][2] = board[3][2] = null;
-  assert.equal(hasMove(board, [null, piece(), null]), true);
+  assert.equal(hasMove(board, [null, piece(), null]), false);
+  assert.equal(hasMove(board, [null, piece(0, 1, 1), null]), true);
+  assert.equal(hasMove(board, [piece(), piece(0, 1, 1)]), true);
   board[3][2] = 0;
   board[5][5] = null;
   assert.equal(hasMove(board, [piece()]), false);
@@ -245,8 +248,8 @@ test("long deterministic play preserves all survivors: no hidden falling or extr
     let chosen;
     for (let i = 0; i < state.hand.length && !chosen; i++) {
       if (!state.hand[i]) continue;
-      for (let rotation = 0; rotation < 4 && !chosen; rotation++) {
-        const piece = { ...state.hand[i], rotation };
+      {
+        const piece = state.hand[i];
         for (let r = 0; r < 8 && !chosen; r++)
           for (let c = 0; c < 8 && !chosen; c++) {
             if (canPlace(state.board, piece, r, c)) chosen = { i, r, c, piece };
@@ -276,4 +279,44 @@ test("long deterministic play preserves all survivors: no hidden falling or extr
     assert.equal(result.state.score - state.score, result.removed.length * 10);
     state = result.state;
   }
+});
+
+test("slightly misaligned drops snap to the nearest valid anchor", () => {
+  assert.deepEqual(snapPlacement(empty(), piece(), 3.35, 2.4), {
+    row: 3,
+    col: 2,
+  });
+  // First candidate would overflow the right edge; fit to the last valid pair.
+  assert.deepEqual(snapPlacement(empty(), piece(), 3, 7.05), {
+    row: 3,
+    col: 6,
+  });
+  assert.deepEqual(snapPlacement(empty(), piece(0, 1, 1), 7.05, 3), {
+    row: 6,
+    col: 3,
+  });
+});
+test("nearby occupied anchors snap to empty cells without replacing existing blocks", () => {
+  const board = empty();
+  board[3][3] = 2;
+  const before = structuredClone(board);
+  const position = snapPlacement(board, piece(), 3, 2.65);
+  assert.ok(position);
+  assert.equal(canPlace(board, piece(), position.row, position.col), true);
+  assert.deepEqual(board, before);
+  const result = placePiece(fixture(board), 0, position.row, position.col);
+  assert.equal(result.state.board[3][3], 2);
+});
+test("snapping never searches distant empty spaces or rotates the piece", () => {
+  const board = Array.from({ length: 8 }, () => Array(8).fill(2));
+  board[3][3] = board[4][3] = null;
+  assert.equal(snapPlacement(board, piece(), 3, 3), null);
+  assert.deepEqual(snapPlacement(board, piece(0, 1, 1), 3, 3), {
+    row: 3,
+    col: 3,
+  });
+  assert.equal(snapPlacement(board, piece(0, 1, 1), 0, 0), null);
+  assert.equal(snapPlacement(empty(), piece(), -3, 0), null);
+  assert.equal(snapPlacement(empty(), null, 0, 0), null);
+  assert.equal(snapPlacement(empty(), piece(), NaN, 0), null);
 });
