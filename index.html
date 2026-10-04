@@ -1,0 +1,156 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, viewport-fit=cover"
+    />
+    <meta name="theme-color" content="#f7f6f1" />
+    <meta
+      name="description"
+      content="好きな場所に置いて、同じ色を4つつなげる。重力のない、じっくり遊べるパズル。"
+    />
+    <link
+      rel="icon"
+      href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect x='4' y='4' width='56' height='56' rx='20' fill='%2328897a'/%3E%3Ccircle cx='32' cy='32' r='10' fill='white'/%3E%3C/svg%3E"
+    />
+    <link rel="stylesheet" href="style.css" />
+    <title>PUYO PLACE — つなげて、ひと息。</title>
+  </head>
+  <body>
+    <main class="app">
+      <header class="header">
+        <div class="brand">
+          <span class="brand-mark" aria-hidden="true"><i></i><i></i></span>
+          <div>
+            <span class="eyebrow">A LITTLE PUZZLE BREAK</span>
+            <h1>PUYO <span>PLACE</span></h1>
+          </div>
+        </div>
+        <button class="icon-button" id="help" aria-label="遊び方を開く">
+          ?
+        </button>
+      </header>
+      <div class="layout">
+        <section class="game" aria-label="パズルゲーム">
+          <div class="scorebar">
+            <div>
+              <span class="eyebrow">SCORE</span><strong id="score">0</strong>
+            </div>
+            <div class="best">
+              <span class="eyebrow">BEST</span><strong id="best">0</strong>
+            </div>
+            <button class="restart" id="restart">
+              <span aria-hidden="true">↻</span> リスタート
+            </button>
+          </div>
+          <div class="board-heading">
+            <span><i class="status-dot"></i>つなげて、ひと息。</span
+            ><span id="board-size">8 × 8</span>
+          </div>
+          <div class="board-wrap">
+            <div
+              id="board"
+              class="board"
+              role="grid"
+              aria-label="パズル盤面。矢印キーで移動、Enterで配置"
+              tabindex="0"
+            ></div>
+            <div id="preview" class="preview" aria-hidden="true"></div>
+            <div id="score-pop" class="score-pop" aria-hidden="true"></div>
+          </div>
+          <div class="message" id="message" role="status" aria-live="polite">
+            ピースを好きな空きマスへドラッグ
+          </div>
+          <section class="hand-area" aria-label="手元のピース">
+            <div class="hand-heading">
+              <span class="eyebrow">YOUR PIECES</span
+              ><span id="remaining">あと 3 個</span>
+            </div>
+            <div id="hand" class="hand"></div>
+            <button id="rotate" class="rotate">
+              <span aria-hidden="true">⟳</span> 選択したピースを回転
+              <kbd>R</kbd>
+            </button>
+          </section>
+          <p class="footnote">3個使うと補充されます。時間制限はありません。</p>
+        </section>
+        <aside class="guide">
+          <span class="eyebrow">PLACE. CONNECT. POP.</span>
+          <h2>好きなところに。<br />つなぐ楽しさを。</h2>
+          <p>
+            次の一手を、ゆっくり考えよう。<br />小さなひらめきが、空きをつくる。
+          </p>
+          <div class="rule-demo" aria-hidden="true">
+            <span class="mini c0">●</span><span class="mini c0">●</span
+            ><span class="mini c0">●</span><span class="mini c0">●</span
+            ><span class="demo-spark">✧</span>
+          </div>
+          <ol>
+            <li>
+              <b>空いている場所に置く</b
+              ><span>2マスのピースを、好きな向きで。</span>
+            </li>
+            <li>
+              <b>同じ色を4つ以上つなぐ</b
+              ><span>たて・よこでつながると消えます。</span>
+            </li>
+            <li>
+              <b>残ったブロックはそのまま</b
+              ><span>消えた場所が空きます。落下はしません。</span>
+            </li>
+          </ol>
+          <div class="quiet-tag">
+            <span aria-hidden="true">✦</span> あせらず、自分のペースで。
+          </div>
+        </aside>
+      </div>
+      <footer>NO GRAVITY. JUST POSSIBILITY.</footer>
+    </main>
+    <div id="drag-piece" class="drag-piece" aria-hidden="true" hidden></div>
+    <dialog id="help-dialog">
+      <button class="dialog-close" aria-label="閉じる">×</button
+      ><span class="eyebrow">HOW TO PLAY</span>
+      <h2>置いて、つなげて、消す。</h2>
+      <p>
+        手元のピースをドラッグして、空いている2マスに置きます。ピースを選んでから、盤面をタップしても置けます。
+      </p>
+      <p>
+        回転ボタンで90度ずつ回転。同じ色が上下左右に4個以上つながると、グループ全体が同時に消えます。1個につき10点です。
+      </p>
+      <p>
+        <b>重力はありません。</b
+        >残ったブロックは動かず、斜めのつながりや、列が埋まるだけでは消えません。囲まれた空きにも直接置けます。
+      </p>
+      <p>3個すべて使うと補充。回転しても置けるピースがなくなったら終了です。</p>
+      <p class="keyboard-help">
+        PC：1〜3で選択 / Rで回転 / 盤面にフォーカスして矢印キーで移動 /
+        Enterで配置 / Escでキャンセル
+      </p>
+      <button class="primary dialog-close">さあ、遊ぼう</button>
+    </dialog>
+    <dialog id="restart-dialog">
+      <span class="eyebrow">FRESH START</span>
+      <h2>はじめから遊びますか？</h2>
+      <p>現在の盤面とスコアをリセットします。ベストスコアは残ります。</p>
+      <div class="dialog-actions">
+        <button class="secondary" id="cancel-restart">続ける</button
+        ><button class="primary" id="confirm-restart">リスタート</button>
+      </div>
+    </dialog>
+    <dialog id="over-dialog">
+      <span class="eyebrow">NICE PUZZLING!</span>
+      <h2>また、ひとつひらめこう。</h2>
+      <p>回転しても置ける場所がなくなりました。</p>
+      <div class="final-score">
+        <span class="eyebrow">YOUR SCORE</span
+        ><strong id="final-score">0</strong>
+      </div>
+      <p id="final-stats"></p>
+      <button class="primary" id="play-again">もう一度あそぶ</button
+      ><button class="secondary" id="view-board">盤面を見る</button>
+    </dialog>
+    <script type="module" src="app.js"></script>
+  </body>
+</html>
